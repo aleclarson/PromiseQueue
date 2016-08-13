@@ -1,4 +1,6 @@
-var Event, Promise, Random, Type, fromArgs, immediate, type;
+var Event, Promise, Random, Type, assertType, fromArgs, immediate, sync, type;
+
+assertType = require("assertType");
 
 immediate = require("immediate");
 
@@ -12,6 +14,8 @@ Event = require("Event");
 
 Type = require("Type");
 
+sync = require("sync");
+
 type = Type("PromiseQueue");
 
 type.defineOptions({
@@ -23,18 +27,14 @@ type.defineOptions({
   })
 });
 
-type.defineValues({
-  maxConcurrent: fromArgs("maxConcurrent"),
-  didFinish: function() {
-    return Event();
-  },
-  _queue: function() {
-    return [];
-  },
-  _promises: function() {
-    return [];
-  },
-  _onError: fromArgs("onError")
+type.defineValues(function(options) {
+  return {
+    maxConcurrent: options.maxConcurrent,
+    didFinish: Event(),
+    _queue: [],
+    _promises: [],
+    _onError: options.onError
+  };
 });
 
 type.defineGetters({
@@ -48,17 +48,46 @@ type.defineGetters({
 
 type.defineMethods({
   push: function(func) {
+    assertType(func, Function);
     this._queue.push(func);
     this._tryNext();
   },
   unshift: function(func) {
+    assertType(func, Function);
     this._queue.unshift(func);
     this._tryNext();
   },
-  onceFinished: function(func) {
-    var listener;
-    listener = this.didFinish(1, func);
-    return listener.start();
+  concat: function(iterable, iterator) {
+    assertType(iterator, Function.Maybe);
+    if (iterator) {
+      sync.each(iterable, (function(_this) {
+        return function(value, key) {
+          return _this.push(function() {
+            return iterator(value, key);
+          });
+        };
+      })(this));
+    } else {
+      sync.each(iterable, (function(_this) {
+        return function(value) {
+          return _this.push(value);
+        };
+      })(this));
+    }
+  },
+  done: function(func) {
+    var deferred, listener;
+    assertType(func, Function.Maybe);
+    deferred = Promise.defer();
+    listener = this.didFinish(1, function() {
+      if (!func) {
+        deferred.resolve();
+        return;
+      }
+      return Promise["try"](func).then(deferred.resolve).fail(deferred.reject);
+    });
+    listener.start();
+    return deferred.promise;
   },
   _next: function() {
     var onFulfilled, promise, promises, tryNext;

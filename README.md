@@ -12,7 +12,7 @@ queue.unshift -> makePromise()
 queue.push -> makePromise()
 
 # Listen for the next 'finish' event.
-queue.onceFinished callback
+promise = queue.done callback
 
 # Listen to 'finish' events forever.
 listener = queue.didFinish callback

@@ -1,10 +1,12 @@
 
+assertType = require "assertType"
 immediate = require "immediate"
 fromArgs = require "fromArgs"
 Promise = require "Promise"
 Random = require "random"
 Event = require "Event"
 Type = require "Type"
+sync = require "sync"
 
 type = Type "PromiseQueue"
 
@@ -12,17 +14,17 @@ type.defineOptions
   maxConcurrent: Number.isRequired
   onError: Function.withDefault (error) -> immediate -> throw error
 
-type.defineValues
+type.defineValues (options) ->
 
-  maxConcurrent: fromArgs "maxConcurrent"
+  maxConcurrent: options.maxConcurrent
 
-  didFinish: -> Event()
+  didFinish: Event()
 
-  _queue: -> []
+  _queue: []
 
-  _promises: -> []
+  _promises: []
 
-  _onError: fromArgs "onError"
+  _onError: options.onError
 
 type.defineGetters
 
@@ -33,18 +35,39 @@ type.defineGetters
 type.defineMethods
 
   push: (func) ->
+    assertType func, Function
     @_queue.push func
     @_tryNext()
     return
 
   unshift: (func) ->
+    assertType func, Function
     @_queue.unshift func
     @_tryNext()
     return
 
-  onceFinished: (func) ->
-    listener = @didFinish 1, func
-    return listener.start()
+  concat: (iterable, iterator) ->
+    assertType iterator, Function.Maybe
+    if iterator
+      sync.each iterable, (value, key) =>
+        @push -> iterator value, key
+    else
+      sync.each iterable, (value) =>
+        @push value
+    return
+
+  done: (func) ->
+    assertType func, Function.Maybe
+    deferred = Promise.defer()
+    listener = @didFinish 1, ->
+      if not func
+        deferred.resolve()
+        return
+      Promise.try func
+        .then deferred.resolve
+        .fail deferred.reject
+    listener.start()
+    return deferred.promise
 
   _next: ->
     promises = @_promises
