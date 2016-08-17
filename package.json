@@ -8,11 +8,9 @@
     ]
   },
   "dependencies": {
-    "Event": "aleclarson/Event#2.0.1",
     "Promise": "aleclarson/Promise#1.0.0",
     "Type": "aleclarson/Type#1.1.0",
     "assertType": "aleclarson/assertType#2.0.0",
-    "fromArgs": "aleclarson/fromArgs#1.0.0",
     "immediate": "aleclarson/immediate#4.1.0",
     "random": "aleclarson/random#1.0.4",
     "sync": "aleclarson/sync#1.0.0"
